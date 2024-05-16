@@ -1,4 +1,4 @@
-treamlit
+streamlit
 from PIL import Image
 requests
 from bs4 import BeautifulSoup
