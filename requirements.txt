@@ -1,0 +1,9 @@
+treamlit
+from PIL import Image
+requests
+from bs4 import BeautifulSoup
+numpy
+from keras.models import load_model
+cv2
+pandas
+os
