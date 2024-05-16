@@ -1,9 +1,9 @@
 streamlit
-from PIL import Image
+PIL
 requests
-from bs4 import BeautifulSoup
+bs4
 numpy
-from keras.models import load_model
+keras.models
 cv2
 pandas
 os
