@@ -124,6 +124,7 @@ You can replace or expand the dataset to improve accuracy or support more food c
 ## 👩‍💻 Author
 
 **Dhwani Chande**
+
 📌 GitHub: [https://github.com/Dhwani-Chande](https://github.com/Dhwani-Chande)
 📌 LinkedIn: [https://www.linkedin.com/in/dhwani-chande29/](https://www.linkedin.com/in/dhwani-chande29/)
 
