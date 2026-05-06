@@ -149,9 +149,19 @@ streamlit run App.py
 
 ## 📊 Dataset
 
-**Recipe data** (`IndianFoodDatasetCSV.csv`): 6,800+ Indian recipes with translated names, ingredients, instructions, diet tags, course tags, and source URLs.
+### 🥦 Image Dataset (Model Training)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Fruit_&_Vegetable_Recognition-20BEFF?style=flat&logo=kaggle)](https://www.kaggle.com/datasets/kritikseth/fruit-and-vegetable-image-recognition)
 
-**Image data** (`dataset/`): Training images organised into 36 class folders — one per fruit/vegetable.
+Training images sourced from the **Fruit and Vegetable Image Recognition** dataset on Kaggle by [kritikseth](https://www.kaggle.com/kritikseth). Organised into 36 class folders — one per fruit/vegetable.
+
+To download:
+```bash
+kaggle datasets download -d kritikseth/fruit-and-vegetable-image-recognition
+```
+Or download directly from the [Kaggle page](https://www.kaggle.com/datasets/kritikseth/fruit-and-vegetable-image-recognition).
+
+### 🍛 Recipe Dataset
+**`IndianFoodDatasetCSV.csv`** — 6,800+ Indian recipes with translated names, ingredients, instructions, diet tags, course tags, and source URLs.
 
 **Supported ingredients:**
 
