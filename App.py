@@ -165,19 +165,51 @@ def classify_image(img_path: str) -> tuple:
     label = LABELS[top_idx]
     return label.capitalize(), confidence
 
-def recommend_recipes(ingredients: list, recipes_df: pd.DataFrame, diet: str = "All", n: int = 10) -> pd.DataFrame:
+def recommend_recipes(ingredients: list, recipes_df: pd.DataFrame, diet: str = "All", n: int = 12) -> pd.DataFrame:
+    """
+    Score-based recommendation:
+    - Each recipe gets a score = number of basket ingredients it contains
+    - Sort by score descending
+    - Return top n with match info attached
+    - Never returns empty — always gives best available matches
+    """
     if not ingredients:
         return pd.DataFrame()
-    mask = pd.Series([True] * len(recipes_df))
-    for ing in ingredients:
-        p = ing.lower()
-        mask &= (
-            recipes_df["TranslatedRecipeName"].str.lower().str.contains(p, na=False) |
-            recipes_df["TranslatedIngredients"].str.lower().str.contains(p, na=False)
-        )
+
+    df = recipes_df.copy()
+
+    # Apply diet filter first
     if diet and diet != "All":
-        mask &= recipes_df["Diet"] == diet
-    return recipes_df[mask].drop_duplicates("TranslatedRecipeName").head(n)
+        df = df[df["Diet"] == diet]
+
+    if df.empty:
+        # Relax diet filter if nothing found
+        df = recipes_df.copy()
+
+    # Score each recipe
+    def score_recipe(row):
+        text = (
+            str(row.get("TranslatedRecipeName", "")) + " " +
+            str(row.get("TranslatedIngredients", ""))
+        ).lower()
+        return sum(1 for ing in ingredients if ing.lower() in text)
+
+    df = df.copy()
+    df["_match_score"] = df.apply(score_recipe, axis=1)
+    df["_match_count"] = df["_match_score"]  # same for display
+    df["_total_ingredients"] = len(ingredients)
+
+    # Only keep recipes that match at least 1 ingredient
+    df = df[df["_match_score"] > 0]
+
+    if df.empty:
+        return pd.DataFrame()
+
+    # Sort by score descending, deduplicate
+    df = df.sort_values("_match_score", ascending=False)
+    df = df.drop_duplicates("TranslatedRecipeName")
+
+    return df.head(n)
 
 def format_ingredients(raw: str) -> list:
     return [i.strip() for i in raw.split(",") if i.strip()] if raw else []
@@ -188,7 +220,7 @@ def format_instructions(raw: str) -> list:
     steps = [s.strip() for s in re.split(r"(?<=[.!?]) +(?=[A-Z])", raw) if s.strip()]
     return steps if len(steps) > 1 else [raw.strip()]
 
-def show_recipe_expander(row: dict, user_id: str = None, key_prefix: str = "r"):
+def show_recipe_expander(row: dict, user_id: str = None, key_prefix: str = "r", match_label: str = ""):
     import hashlib
     name   = row.get("TranslatedRecipeName") or row.get("recipe_name", "Recipe")
     diet   = row.get("Diet") or row.get("diet", "")
@@ -197,7 +229,8 @@ def show_recipe_expander(row: dict, user_id: str = None, key_prefix: str = "r"):
     ing    = row.get("TranslatedIngredients") or row.get("ingredients", "")
     ins    = row.get("TranslatedInstructions") or row.get("instructions", "")
     tag    = " · ".join(filter(None, [diet, course]))
-    title  = f"🍳 {name}" + (f"  —  {tag}" if tag else "")
+    match_part = f"  ✅ {match_label}" if match_label else ""
+    title  = f"🍳 {name}" + (f"  —  {tag}" if tag else "") + match_part
     # unique key based on full name hash to avoid duplicate widget keys
     uid = hashlib.md5(f"{key_prefix}_{name}".encode()).hexdigest()[:10]
 
@@ -439,15 +472,22 @@ def page_identify():
     recs = recommend_recipes(st.session_state["basket"], recipes_df, diet_filter)
 
     if recs.empty:
-        st.warning("No recipes found for this combination. Try removing an ingredient or changing diet filter.")
-        # Fallback: show recipes for first ingredient only
-        if len(st.session_state["basket"]) > 1:
-            st.write(f"Showing recipes for **{st.session_state['basket'][0]}** only:")
-            recs = recommend_recipes([st.session_state["basket"][0]], recipes_df, diet_filter)
-    
-    st.caption(f"{len(recs)} recipes found")
+        st.warning("No recipes found. Try a different diet filter or add more ingredients.")
+        return
+
+    # Show match summary
+    total_ings = len(st.session_state["basket"])
+    perfect = len(recs[recs["_match_count"] == total_ings])
+    st.caption(f"Found **{len(recs)} recipes** · {perfect} use all your ingredients")
+
     for _, row in recs.iterrows():
-        show_recipe_expander(row.to_dict(), user["id"])
+        match = int(row.get("_match_count", 0))
+        total = int(row.get("_total_ingredients", total_ings))
+        # Add match badge to key_prefix so it shows in expander
+        match_label = f"{match}/{total} ingredients" if total > 1 else ""
+        show_recipe_expander(row.to_dict(), user["id"],
+                             key_prefix=f"identify_{match}",
+                             match_label=match_label)
 
 
 def page_recipes():
