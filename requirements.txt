@@ -1,13 +1,10 @@
-# SmartKitchen – required dependencies
-# Install with: pip install -r requirements.txt
-
+# SmartKitchen – Streamlit Cloud compatible dependencies
 streamlit>=1.31.0
-tensorflow>=2.15.0          # or tensorflow-macos on Apple Silicon
+tensorflow-cpu>=2.15.0
 keras>=2.15.0
 numpy>=1.24.0
 pandas>=2.0.0
 Pillow>=10.0.0
-opencv-python>=4.9.0.80
+opencv-python-headless>=4.9.0.80
 requests>=2.31.0
 beautifulsoup4>=4.12.0
-scikit-learn>=1.4.0         # optional – useful for future model evaluation
