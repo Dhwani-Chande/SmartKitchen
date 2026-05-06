@@ -1,48 +1,96 @@
+<div align="center">
+
 # 🍽️ SmartKitchen
 
-SmartKitchen is a machine-learning–powered web app that **identifies fruits and vegetables from photos** and instantly recommends **Indian recipes** based on what you have on hand.
+**AI-powered ingredient identification & Indian recipe recommendations**
 
-Built with TensorFlow/Keras (MobileNet transfer learning) and deployed as a Streamlit application.
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-smartkitchen.streamlit.app-FF4B4B?style=for-the-badge)](https://smartkitchen.streamlit.app)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white)](https://tensorflow.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.31-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
 
----
+*Point your camera at any fruit or vegetable — get instant AI identification, calories, nutrition data, and personalised Indian recipe suggestions.*
 
-## 🚀 Features
-
-- 📷 **Image classification** — upload a photo or use your webcam to identify a fruit or vegetable (36 classes)
-- 🧠 **MobileNet transfer learning** — fast, accurate CNN inference from a pre-trained `.h5` model
-- 🍛 **Recipe recommendations** — matched by ingredient name AND ingredient list from an Indian food dataset
-- 📊 **Recipe browser** — filter by diet type and course, or search by keyword
-- 🔢 **Calorie lookup** — live fetch with static fallback table so it never silently fails
-- 📱 **Responsive UI** — Streamlit layout with sidebar navigation
+</div>
 
 ---
 
-## 📁 Project Structure
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| 📷 **AI Identification** | Upload a photo or use live camera — MobileNet classifies 36 fruits & vegetables with confidence score |
+| 🧺 **Multi-Ingredient Basket** | Add multiple ingredients via photo, camera, or manual selection — recipes scored against all of them |
+| 🍛 **Smart Recommendations** | Score-based matching — recipes ranked by how many of your ingredients they use, with match % shown |
+| 🔢 **Nutrition Data** | Calories + full macros (carbs, protein, fat, fiber, vitamins) for every identified ingredient |
+| 📖 **Recipe Browser** | 6,800+ Indian recipes filterable by diet, course, and keyword search |
+| 👤 **User Accounts** | Email + password auth via Supabase — sign up, save favourites, track search history |
+| ❤️ **Favourites** | Save any recipe — persists across sessions and devices |
+| 🥗 **Diet Preferences** | Set your diet once (Vegan, Vegetarian, Diabetic Friendly, etc.) — auto-applied everywhere |
+
+---
+
+## 🎯 How It Works
+
+```
+📷 Upload Photo  ──►  🧠 MobileNet CNN  ──►  🏷️ Label + Confidence
+                                                      │
+                                               🧺 Ingredient Basket
+                                                      │
+                                        ┌─────────────┴─────────────┐
+                                        │   Score-Based Matching     │
+                                        │   recipe_score = Σ(ing ∈  │
+                                        │   recipe_ingredients)      │
+                                        └─────────────┬─────────────┘
+                                                      │
+                                        🍛 Ranked Recipe Results
+                                           with match % badges
+```
+
+---
+
+## 🧠 Model Details
+
+| Property | Value |
+|---|---|
+| Architecture | MobileNet V1 (transfer learning) |
+| Input | 224 × 224 × 3 RGB |
+| Output | 36 classes (15 fruits + 21 vegetables) |
+| Framework | TensorFlow 2.15 / Keras |
+| Training | Custom dataset, fine-tuned final layers |
+| Format | `.h5` (Keras SavedModel) |
+
+Training notebook: [`Fruit_Veg_Classification_Mobilenet.ipynb`](./Fruit_Veg_Classification_Mobilenet.ipynb)
+
+---
+
+## 🗂️ Project Structure
 
 ```
 SmartKitchen/
-├── App.py                                    # Main Streamlit application
-├── FV.h5                                     # Pre-trained MobileNet model
-├── Fruit_Veg_Classification_Mobilenet.ipynb  # Training notebook
-├── IndianFoodDatasetCSV.csv                  # Indian recipe dataset
-├── dataset/                                  # Training image data
-├── upload_images/                            # Temp folder for uploaded/captured images
-├── requirements.txt                          # Minimal dependencies
+├── App.py                                    # Main Streamlit app (auth, UI, ML inference)
+├── FV.h5                                     # Pre-trained MobileNet model weights
+├── Fruit_Veg_Classification_Mobilenet.ipynb  # Model training & evaluation notebook
+├── IndianFoodDatasetCSV.csv                  # 6,800+ Indian recipes dataset
+├── dataset/                                  # Training image data (36 classes)
+├── upload_images/                            # Temp storage for uploaded/captured images
+├── requirements.txt                          # Python dependencies
 └── README.md
 ```
 
 ---
 
-## ⚙️ Setup
+## ⚙️ Local Setup
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/Dhwani-Chande/SmartKitchen.git
 cd SmartKitchen
 ```
 
-### 2. Create a virtual environment (recommended)
+### 2. Virtual environment
 
 ```bash
 python -m venv venv
@@ -55,9 +103,43 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-> **Apple Silicon users:** replace `tensorflow` with `tensorflow-macos` in requirements.txt
+### 4. Configure Supabase
 
-### 4. Run the app
+Create a `.env` file or set these directly in `App.py`:
+
+```
+SUPABASE_URL=your_project_url
+SUPABASE_KEY=your_anon_key
+```
+
+Create these tables in your Supabase project:
+
+```sql
+create table users (
+  id uuid primary key,
+  name text not null,
+  diet_preference text default 'All',
+  created_at timestamp default now()
+);
+
+create table favourites (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references users(id) on delete cascade,
+  recipe_name text not null,
+  diet text, course text,
+  ingredients text, instructions text, url text,
+  saved_at timestamp default now()
+);
+
+create table search_history (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references users(id) on delete cascade,
+  ingredient text not null,
+  searched_at timestamp default now()
+);
+```
+
+### 5. Run
 
 ```bash
 streamlit run App.py
@@ -65,51 +147,56 @@ streamlit run App.py
 
 ---
 
-## 🧠 Model Details
+## 📊 Dataset
 
-| Detail | Value |
-|---|---|
-| Architecture | MobileNet (transfer learning) |
-| Input size | 224 × 224 × 3 |
-| Output classes | 36 (fruits + vegetables) |
-| Framework | TensorFlow / Keras |
-| Saved format | `.h5` |
+**Recipe data** (`IndianFoodDatasetCSV.csv`): 6,800+ Indian recipes with translated names, ingredients, instructions, diet tags, course tags, and source URLs.
 
-Training code and data preprocessing are in `Fruit_Veg_Classification_Mobilenet.ipynb`.
+**Image data** (`dataset/`): Training images organised into 36 class folders — one per fruit/vegetable.
+
+**Supported ingredients:**
+
+🍎 Apple · 🍌 Banana · 🫚 Beetroot · 🫑 Bell Pepper · 🥬 Cabbage · 🫑 Capsicum · 🥕 Carrot · 🥦 Cauliflower · 🌶️ Chilli Pepper · 🌽 Corn · 🥒 Cucumber · 🍆 Eggplant · 🧄 Garlic · 🫚 Ginger · 🍇 Grapes · 🌶️ Jalepeno · 🥝 Kiwi · 🍋 Lemon · 🥬 Lettuce · 🥭 Mango · 🧅 Onion · 🍊 Orange · 🫑 Paprika · 🍐 Pear · 🫛 Peas · 🍍 Pineapple · 🍎 Pomegranate · 🥔 Potato · 🌱 Raddish · 🫘 Soy Beans · 🥬 Spinach · 🌽 Sweetcorn · 🍠 Sweetpotato · 🍅 Tomato · 🫚 Turnip · 🍉 Watermelon
 
 ---
 
-## 📊 Dataset
+## 🛠️ Tech Stack
 
-- **Image data**: stored in `dataset/` directory, organised by class
-- **Recipe data**: `IndianFoodDatasetCSV.csv` — columns used:
-  - `TranslatedRecipeName`
-  - `TranslatedIngredients`
-  - `TranslatedInstructions`
-  - `Diet`
-  - `Course`
-  - `URL`
+| Layer | Technology |
+|---|---|
+| **Frontend** | Streamlit |
+| **ML Model** | TensorFlow / Keras / MobileNet |
+| **Database** | Supabase (PostgreSQL) |
+| **Auth** | Supabase Auth (email + password) |
+| **Hosting** | Streamlit Community Cloud |
+| **Language** | Python 3.11 |
 
 ---
 
 ## 🌱 Roadmap
 
-- [ ] Nutritional API integration (replace Google scraping)
-- [ ] Multi-ingredient detection (detect several items in one photo)
+- [x] AI fruit & vegetable classification
+- [x] Multi-ingredient basket
+- [x] Score-based recipe matching
+- [x] User authentication
+- [x] Favourites & search history
+- [x] Nutrition data
+- [ ] Google OAuth login
+- [ ] Password reset flow
 - [ ] Expand to 100+ ingredient classes
-- [ ] User pantry tracker (remember what you have)
-- [ ] Mobile-optimised UI / PWA
+- [ ] Nutrition API (replace static table)
+- [ ] Mobile PWA
 
 ---
 
 ## 👩‍💻 Author
 
-**Dhwani Chande**  
-GitHub: [Dhwani-Chande](https://github.com/Dhwani-Chande)  
-LinkedIn: [dhwani-chande29](https://www.linkedin.com/in/dhwani-chande29/)
+**Dhwani Chande**
+
+[![GitHub](https://img.shields.io/badge/GitHub-Dhwani--Chande-181717?style=flat&logo=github)](https://github.com/Dhwani-Chande)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-dhwani--chande29-0A66C2?style=flat&logo=linkedin)](https://www.linkedin.com/in/dhwani-chande29/)
 
 ---
 
 ## 📄 License
 
-Educational and research use. Free to use with attribution.
+This project is open for educational and research use. Free to use with attribution.
