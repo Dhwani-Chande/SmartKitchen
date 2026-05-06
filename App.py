@@ -199,24 +199,30 @@ def apply_styles():
     [data-testid="stExpander"]:hover {
         border-color: #388bfd !important;
     }
-    /* Expander summary row */
+    /* ── Expander: nuke the icon text, keep the label ── */
     [data-testid="stExpander"] summary {
         color: #e6edf3 !important;
         font-weight: 500 !important;
         font-size: 0.92rem !important;
         padding: 0.85rem 1rem !important;
         list-style: none !important;
-        display: flex !important;
-        align-items: center !important;
     }
     [data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
-    /* Hide ONLY the icon span, not the text */
-    [data-testid="stExpander"] summary > span:last-child svg { display: none !important; }
-    [data-testid="stExpander"] summary > div:last-child { flex-shrink: 0; }
+    /* Target every known Streamlit icon class and zero its font-size */
+    [data-testid="stExpander"] [data-testid="stExpanderToggleIcon"],
+    [data-testid="stExpander"] .eyeqlp53,
+    [data-testid="stExpander"] span[class*="expanderIcon"],
+    [data-testid="stExpander"] span.material-symbols-rounded,
+    [data-testid="stExpander"] span[class*="material"] {
+        font-size: 0 !important;
+        width: 1.2rem !important;
+        height: 1.2rem !important;
+        overflow: hidden !important;
+    }
     /* Content inside */
-    [data-testid="stExpander"] p    { color: #8b949e !important; font-size: 0.88rem !important; line-height: 1.6 !important; }
+    [data-testid="stExpander"] p     { color: #8b949e !important; font-size: 0.88rem !important; line-height: 1.6 !important; }
     [data-testid="stExpander"] strong { color: #c9d1d9 !important; }
-    [data-testid="stExpander"] a    { color: #388bfd !important; }
+    [data-testid="stExpander"] a      { color: #388bfd !important; }
 
     /* Hero */
     .hero {
@@ -416,6 +422,55 @@ def show_result(result):
         )
         st.markdown(f'<div class="nut-row">{cells}</div>', unsafe_allow_html=True)
 
+def recipe_card(key, name, tag, ing_raw, ins_raw, url, idx):
+    """Render a custom collapsible recipe card without st.expander."""
+    import re
+    state_key = f"recipe_open_{key}_{idx}"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = False
+
+    # Header row — clickable button styled as card header
+    is_open = st.session_state[state_key]
+    arrow = "▾" if is_open else "▸"
+    label_text = f"{arrow}  🍳  {name}" + (f"  ·  {tag}" if tag else "")
+
+    st.markdown(f"""
+    <div style="background:#161b27;border:1px solid {'#388bfd' if is_open else '#21262d'};
+         border-radius:10px;margin-bottom:0.4rem;overflow:hidden;">
+        <div id="card-header-{key}-{idx}" style="padding:0;margin:0;"></div>
+    </div>""", unsafe_allow_html=True)
+
+    if st.button(label_text, key=state_key + "_btn",
+                 use_container_width=True,
+                 type="secondary"):
+        st.session_state[state_key] = not st.session_state[state_key]
+        st.rerun()
+
+    if st.session_state[state_key]:
+        with st.container():
+            st.markdown('<div style="background:#161b27;border:1px solid #388bfd;border-top:none;border-radius:0 0 10px 10px;padding:1rem 1.2rem;margin-top:-0.4rem;">', unsafe_allow_html=True)
+            # Format ingredients
+            if ing_raw and ing_raw != "N/A":
+                items = [i.strip() for i in ing_raw.split(",") if i.strip()]
+                ing_md = "\n".join(f"- {i}" for i in items)
+            else:
+                ing_md = "_Not available_"
+            # Format instructions
+            if ins_raw and ins_raw != "N/A":
+                sentences = [s.strip() for s in re.split("(?<=[.!?]) +(?=[A-Z])", ins_raw) if s.strip()]
+                ins_md = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences)) if len(sentences) > 1 else ins_raw
+            else:
+                ins_md = "_Not available_"
+            st.markdown("**🥗 Ingredients**")
+            st.markdown(ing_md)
+            st.markdown("---")
+            st.markdown("**📋 Instructions**")
+            st.markdown(ins_md)
+            if url:
+                st.markdown(f"[🔗 View full recipe →]({url})")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
 def show_recipes(result, recipes_df):
     recs = recommend_recipes(result, recipes_df)
     count = len(recs)
@@ -426,42 +481,15 @@ def show_recipes(result, recipes_df):
     if recs.empty:
         st.info("No recipes found — try Browse Recipes to search manually.")
         return
-    for _, row in recs.iterrows():
-        name   = row.get("TranslatedRecipeName", "Recipe")
-        diet   = row.get("Diet", "")
+    for idx, (_, row) in enumerate(recs.iterrows()):
+        name = row.get("TranslatedRecipeName", "Recipe")
+        diet = row.get("Diet", "")
         course = row.get("Course", "")
-        url    = row.get("URL", "")
-        tag    = " · ".join(filter(None, [diet, course]))
-        label  = f"🍳  {name}" + (f"  ·  {tag}" if tag else "")
-        with st.expander(label):
-            ing_raw = row.get("TranslatedIngredients", "")
-            ins_raw = row.get("TranslatedInstructions", "")
-            # Format ingredients as bullet list
-            if ing_raw and ing_raw != "N/A":
-                items = [i.strip() for i in ing_raw.split(",") if i.strip()]
-                ing_md = "\n".join(f"- {i}" for i in items)
-            else:
-                ing_md = "_Not available_"
-            # Format instructions as numbered steps
-            if ins_raw and ins_raw != "N/A":
-                # Split on periods that end a sentence (capital letter follows or end of string)
-                import re
-                sentences = [s.strip() for s in re.split("(?<=[.!?]) +(?=[A-Z])", ins_raw) if s.strip()]
-                if len(sentences) > 1:
-                    ins_md = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
-                else:
-                    ins_md = ins_raw
-            else:
-                ins_md = "_Not available_"
-            st.markdown("**🥗 Ingredients**")
-            st.markdown(ing_md)
-            st.markdown("---")
-            st.markdown("**📋 Instructions**")
-            st.markdown(ins_md)
-            if url:
-                st.markdown(f"[🔗 View full recipe →]({url})")
+        url  = row.get("URL", "")
+        tag  = " · ".join(filter(None, [diet, course]))
+        recipe_card("show", name, tag, row.get("TranslatedIngredients",""), row.get("TranslatedInstructions",""), url, idx)
 
-# ── Pages ──────────────────────────────────────
+
 def page_home():
     st.markdown("""
     <div class="hero">
@@ -594,35 +622,14 @@ def page_recipes():
         st.info("No recipes match. Try adjusting your filters.")
         return
 
-    sample = filtered.sample(min(12, total), random_state=42)
-    for _, row in sample.iterrows():
-        name   = row.get("TranslatedRecipeName","Recipe")
-        diet   = row.get("Diet","")
+    sample = filtered.sample(min(12, total), random_state=42).reset_index(drop=True)
+    for idx, (_, row) in enumerate(sample.iterrows()):
+        name = row.get("TranslatedRecipeName","Recipe")
+        diet = row.get("Diet","")
         course = row.get("Course","")
-        url    = row.get("URL","")
-        tag    = " · ".join(filter(None,[diet,course]))
-        label  = f"🍳  {name}" + (f"  ·  {tag}" if tag else "")
-        with st.expander(label):
-            import re
-            ing_raw = row.get("TranslatedIngredients", "")
-            ins_raw = row.get("TranslatedInstructions", "")
-            if ing_raw and ing_raw != "N/A":
-                items = [i.strip() for i in ing_raw.split(",") if i.strip()]
-                ing_md = "\n".join(f"- {i}" for i in items)
-            else:
-                ing_md = "_Not available_"
-            if ins_raw and ins_raw != "N/A":
-                sentences = [s.strip() for s in re.split("(?<=[.!?]) +(?=[A-Z])", ins_raw) if s.strip()]
-                ins_md = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences)) if len(sentences) > 1 else ins_raw
-            else:
-                ins_md = "_Not available_"
-            st.markdown("**🥗 Ingredients**")
-            st.markdown(ing_md)
-            st.markdown("---")
-            st.markdown("**📋 Instructions**")
-            st.markdown(ins_md)
-            if url:
-                st.markdown(f"[🔗 View full recipe →]({url})")
+        url  = row.get("URL","")
+        tag  = " · ".join(filter(None,[diet,course]))
+        recipe_card("browse", name, tag, row.get("TranslatedIngredients",""), row.get("TranslatedInstructions",""), url, idx)
 
     st.markdown('<div class="footer">SmartKitchen · By Dhwani Chande</div>', unsafe_allow_html=True)
 
