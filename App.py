@@ -199,19 +199,20 @@ def apply_styles():
     [data-testid="stExpander"]:hover {
         border-color: #388bfd !important;
     }
-    /* Hide the glitchy material icon entirely */
-    [data-testid="stExpander"] summary svg { display:none !important; }
-    [data-testid="stExpander"] summary [data-testid] { display:none !important; }
-    .st-emotion-cache-sh2krr, [class*="expanderIcon"] { display: none !important; }
-    /* Summary text */
+    /* Expander summary row */
     [data-testid="stExpander"] summary {
         color: #e6edf3 !important;
         font-weight: 500 !important;
         font-size: 0.92rem !important;
         padding: 0.85rem 1rem !important;
         list-style: none !important;
+        display: flex !important;
+        align-items: center !important;
     }
     [data-testid="stExpander"] summary::-webkit-details-marker { display: none !important; }
+    /* Hide ONLY the icon span, not the text */
+    [data-testid="stExpander"] summary > span:last-child svg { display: none !important; }
+    [data-testid="stExpander"] summary > div:last-child { flex-shrink: 0; }
     /* Content inside */
     [data-testid="stExpander"] p    { color: #8b949e !important; font-size: 0.88rem !important; line-height: 1.6 !important; }
     [data-testid="stExpander"] strong { color: #c9d1d9 !important; }
