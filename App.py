@@ -467,6 +467,7 @@ def page_identify():
         ["All"] + DIET_OPTIONS[1:],
         index=DIET_OPTIONS.index(user.get("diet_preference","All")) if user.get("diet_preference") in DIET_OPTIONS else 0,
         key="identify_diet"
+        # ⚠️ Session-only filter — does not save to profile
     )
 
     recs = recommend_recipes(st.session_state["basket"], recipes_df, diet_filter)
@@ -506,9 +507,7 @@ def page_recipes():
         saved_diet = user.get("diet_preference", "All")
         diet_idx = DIET_OPTIONS.index(saved_diet) if saved_diet in DIET_OPTIONS else 0
         diet_sel = st.selectbox("Diet", DIET_OPTIONS, index=diet_idx)
-        if diet_sel != saved_diet:
-            db_update_diet(user["id"], diet_sel)
-            st.session_state["user"]["diet_preference"] = diet_sel
+        # ⚠️ Do NOT auto-save here — diet preference is only saved in My Profile
     with c2:
         courses = ["All"] + sorted(recipes_df["Course"].dropna().unique().tolist())
         course_sel = st.selectbox("Course", courses)
