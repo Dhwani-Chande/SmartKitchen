@@ -352,15 +352,32 @@ def apply_styles():
     }
     [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
 
-    /* Nuke ALL Material Icons font text across entire app */
+    /* ── Pre-load Material Symbols font so it never falls back to text ── */
+    @font-face {
+        font-family: 'Material Symbols Rounded';
+        font-style: normal;
+        src: url(https://fonts.gstatic.com/s/materialsymbolsrounded/v235/syl0-zNym6-2r347v-CVetCt3H16e50-_R20YOdDRFt4.woff2) format('woff2');
+    }
+
+    /* Suppress icon text ONLY when font hasn't loaded yet */
     span.material-symbols-rounded,
     span[class*="material-symbols"],
     span[class*="material-icons"] {
-        font-size: 0 !important;
-        width: 16px !important;
-        height: 16px !important;
+        font-family: 'Material Symbols Rounded' !important;
+        font-size: 1.1rem !important;
         overflow: hidden !important;
-        display: inline-block !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 1.2rem !important;
+        height: 1.2rem !important;
+        vertical-align: middle !important;
+    }
+
+    /* Sidebar collapse arrow - hide completely, we don't need it */
+    [data-testid="collapsedControl"] span.material-symbols-rounded,
+    [data-testid="baseButton-headerNoPadding"] span.material-symbols-rounded {
+        font-size: 0 !important;
     }
 
     /* Spinner */
@@ -442,8 +459,7 @@ def recipe_card(key, name, tag, ing_raw, ins_raw, url, idx):
 
     # Header row — clickable button styled as card header
     is_open = st.session_state[state_key]
-    arrow = "▾" if is_open else "▸"
-    label_text = f"{arrow}  🍳  {name}" + (f"  ·  {tag}" if tag else "")
+    label_text = f"🍳  {name}" + (f"  ·  {tag}" if tag else "")
 
     st.markdown(f"""
     <div style="background:#161b27;border:1px solid {'#388bfd' if is_open else '#21262d'};
