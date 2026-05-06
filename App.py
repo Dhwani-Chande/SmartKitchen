@@ -21,12 +21,20 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 def get_supabase():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def db_get_or_create_user(name: str) -> dict:
+def db_get_or_create_profile(auth_user) -> dict:
+    """Get or create a profile row for an authenticated Supabase user."""
     sb = get_supabase()
-    res = sb.table("users").select("*").eq("name", name).execute()
+    uid = auth_user.id
+    res = sb.table("users").select("*").eq("id", uid).execute()
     if res.data:
         return res.data[0]
-    new = sb.table("users").insert({"name": name, "diet_preference": "All"}).execute()
+    # First login — create profile
+    name = (auth_user.user_metadata or {}).get("full_name") or auth_user.email.split("@")[0]
+    new = sb.table("users").insert({
+        "id": uid,
+        "name": name,
+        "diet_preference": "All"
+    }).execute()
     return new.data[0]
 
 def db_update_diet(user_id: str, diet: str):
@@ -180,7 +188,8 @@ def format_instructions(raw: str) -> list:
     steps = [s.strip() for s in re.split(r"(?<=[.!?]) +(?=[A-Z])", raw) if s.strip()]
     return steps if len(steps) > 1 else [raw.strip()]
 
-def show_recipe_expander(row: dict, user_id: str = None):
+def show_recipe_expander(row: dict, user_id: str = None, key_prefix: str = "r"):
+    import hashlib
     name   = row.get("TranslatedRecipeName") or row.get("recipe_name", "Recipe")
     diet   = row.get("Diet") or row.get("diet", "")
     course = row.get("Course") or row.get("course", "")
@@ -189,6 +198,8 @@ def show_recipe_expander(row: dict, user_id: str = None):
     ins    = row.get("TranslatedInstructions") or row.get("instructions", "")
     tag    = " · ".join(filter(None, [diet, course]))
     title  = f"🍳 {name}" + (f"  —  {tag}" if tag else "")
+    # unique key based on full name hash to avoid duplicate widget keys
+    uid = hashlib.md5(f"{key_prefix}_{name}".encode()).hexdigest()[:10]
 
     with st.expander(title):
         c1, c2 = st.columns([3, 1])
@@ -203,10 +214,9 @@ def show_recipe_expander(row: dict, user_id: str = None):
                     st.write(f"{i}. {step}")
         with c2:
             if url:
-                st.link_button("🔗 Full Recipe", url, use_container_width=True)
+                st.link_button("🔗 Full Recipe", url, key=f"link_{uid}", use_container_width=True)
             if user_id:
-                fav_key = f"fav_{name[:30]}"
-                if st.button("❤️ Save", key=fav_key, use_container_width=True):
+                if st.button("❤️ Save", key=f"fav_{uid}", use_container_width=True):
                     saved = db_save_favourite(user_id, row if isinstance(row, dict) else row.to_dict())
                     st.toast("Saved to favourites! ❤️" if saved else "Already in favourites")
 
@@ -214,17 +224,109 @@ def show_recipe_expander(row: dict, user_id: str = None):
 def get_user():
     return st.session_state.get("user")
 
-def require_name() -> bool:
-    if not get_user():
-        st.info("👋 Enter your name to get started — no password needed.")
-        name = st.text_input("Your name", placeholder="e.g. Dhwani")
-        if st.button("Let's go →", type="primary"):
-            if name.strip():
-                user = db_get_or_create_user(name.strip())
-                st.session_state["user"] = user
+def handle_google_callback():
+    """Check URL params for Google OAuth callback and complete sign-in."""
+    params = st.query_params
+    # Supabase puts access_token in the URL fragment — streamlit can't read fragments
+    # So we use a workaround: redirect through a small JS snippet
+    code = params.get("code")
+    if code:
+        try:
+            sb = get_supabase()
+            res = sb.auth.exchange_code_for_session({"auth_code": code})
+            if res.user:
+                profile = db_get_or_create_profile(res.user)
+                st.session_state["user"] = profile
+                st.session_state["auth_user"] = res.user
+                st.query_params.clear()
                 st.rerun()
+        except Exception as e:
+            st.error(f"Google sign-in failed: {e}")
+
+
+def auth_page():
+    """Full login / signup page using Supabase Auth."""
+    sb = get_supabase()
+
+    # Handle Google OAuth callback first
+    handle_google_callback()
+    if get_user():
+        return
+
+    st.title("🍽️ SmartKitchen")
+    st.write("Create an account or sign in to save favourites and track your searches.")
+    st.divider()
+
+    # Google Sign In button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🔵  Continue with Google", use_container_width=True, key="google_btn"):
+            try:
+                res = sb.auth.sign_in_with_oauth({
+                    "provider": "google",
+                    "options": {
+                        "redirect_to": "https://smartkitchen.streamlit.app"
+                    }
+                })
+                # Redirect user to Google
+                st.markdown(f'<meta http-equiv="refresh" content="0; url={res.url}">', unsafe_allow_html=True)
+                st.link_button("Click here if not redirected →", res.url, use_container_width=True)
+            except Exception as e:
+                st.error(f"Google sign-in error: {e}")
+
+    st.divider()
+
+    tab_login, tab_signup = st.tabs(["Sign In", "Create Account"])
+
+    with tab_login:
+        st.subheader("Welcome back!")
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Sign In", type="primary", use_container_width=True, key="login_btn"):
+            if not email or not password:
+                st.warning("Please fill in both fields.")
             else:
-                st.warning("Please enter a name.")
+                try:
+                    res = sb.auth.sign_in_with_password({"email": email, "password": password})
+                    profile = db_get_or_create_profile(res.user)
+                    st.session_state["user"] = profile
+                    st.session_state["auth_user"] = res.user
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Sign in failed — check your email and password.")
+
+    with tab_signup:
+        st.subheader("Join SmartKitchen")
+        name = st.text_input("Your name", key="signup_name", placeholder="e.g. Dhwani")
+        email = st.text_input("Email", key="signup_email")
+        password = st.text_input("Password (min 6 chars)", type="password", key="signup_pass")
+        password2 = st.text_input("Confirm password", type="password", key="signup_pass2")
+        if st.button("Create Account", type="primary", use_container_width=True, key="signup_btn"):
+            if not name or not email or not password:
+                st.warning("Please fill in all fields.")
+            elif password != password2:
+                st.error("Passwords don't match.")
+            elif len(password) < 6:
+                st.error("Password must be at least 6 characters.")
+            else:
+                try:
+                    res = sb.auth.sign_up({
+                        "email": email,
+                        "password": password,
+                        "options": {"data": {"full_name": name}}
+                    })
+                    profile = db_get_or_create_profile(res.user)
+                    st.session_state["user"] = profile
+                    st.session_state["auth_user"] = res.user
+                    st.success(f"Welcome, {name}! 🎉")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Signup failed: {e}")
+
+def require_auth() -> bool:
+    """Returns True if user is logged in, otherwise shows auth page."""
+    if not get_user():
+        auth_page()
         return False
     return True
 
@@ -269,7 +371,7 @@ def page_home():
 
 
 def page_identify():
-    if not require_name():
+    if not require_auth():
         return
 
     user = get_user()
@@ -393,7 +495,7 @@ def page_identify():
 
 
 def page_recipes():
-    if not require_name():
+    if not require_auth():
         return
 
     user = get_user()
@@ -438,13 +540,13 @@ def page_recipes():
 
     sample = filtered.sample(min(12, total), random_state=42)
     for _, row in sample.iterrows():
-        show_recipe_expander(row.to_dict(), user["id"])
+        show_recipe_expander(row.to_dict(), user["id"], key_prefix="browse")
 
     st.caption("SmartKitchen · By Dhwani Chande")
 
 
 def page_profile():
-    if not require_name():
+    if not require_auth():
         return
 
     user = get_user()
@@ -462,7 +564,7 @@ def page_profile():
             for row in favs:
                 col1, col2 = st.columns([5, 1])
                 with col1:
-                    show_recipe_expander(row, user_id=None)
+                    show_recipe_expander(row, user_id=None, key_prefix="profile")
                 with col2:
                     if st.button("🗑️", key=f"del_{row['id']}", help="Remove"):
                         db_remove_favourite(user["id"], row["recipe_name"])
@@ -490,10 +592,13 @@ def page_profile():
         st.success("Saved!")
 
     st.divider()
-    if st.button("Sign out"):
-        del st.session_state["user"]
-        if "basket" in st.session_state:
-            del st.session_state["basket"]
+    if st.button("Sign out", type="secondary"):
+        try:
+            get_supabase().auth.sign_out()
+        except Exception:
+            pass
+        for key in ["user", "auth_user", "basket"]:
+            st.session_state.pop(key, None)
         st.rerun()
 
 
@@ -519,6 +624,9 @@ def main():
         user = get_user()
         if user:
             st.caption(f"👤 {user['name']}")
+            auth_user = st.session_state.get("auth_user")
+            if auth_user:
+                st.caption(f"✉️ {auth_user.email}")
             diet = user.get("diet_preference","All")
             if diet != "All":
                 st.caption(f"🥗 {diet}")
