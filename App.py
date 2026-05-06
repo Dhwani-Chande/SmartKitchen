@@ -330,6 +330,21 @@ def apply_styles():
     [data-testid="stCameraInput"] video,
     [data-testid="stCameraInput"] img { border-radius: 12px !important; }
 
+    /* Hide duplicate upload button text */
+    [data-testid="stFileUploaderDropzone"] button { visibility: hidden !important; position: relative; }
+    [data-testid="stFileUploaderDropzone"] button::after {
+        visibility: visible;
+        content: "Browse Files";
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        color: #58a6ff;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+
     /* Spinner */
     .stSpinner { color: #58a6ff !important; }
 
@@ -418,11 +433,30 @@ def show_recipes(result, recipes_df):
         tag    = " · ".join(filter(None, [diet, course]))
         label  = f"🍳  {name}" + (f"  ·  {tag}" if tag else "")
         with st.expander(label):
-            ing = row.get("TranslatedIngredients", "N/A")
-            ins = row.get("TranslatedInstructions", "N/A")
-            st.markdown(f"**Ingredients**\n\n{ing}")
+            ing_raw = row.get("TranslatedIngredients", "")
+            ins_raw = row.get("TranslatedInstructions", "")
+            # Format ingredients as bullet list
+            if ing_raw and ing_raw != "N/A":
+                items = [i.strip() for i in ing_raw.split(",") if i.strip()]
+                ing_md = "\n".join(f"- {i}" for i in items)
+            else:
+                ing_md = "_Not available_"
+            # Format instructions as numbered steps
+            if ins_raw and ins_raw != "N/A":
+                # Split on periods that end a sentence (capital letter follows or end of string)
+                import re
+                sentences = [s.strip() for s in re.split("(?<=[.!?]) +(?=[A-Z])", ins_raw) if s.strip()]
+                if len(sentences) > 1:
+                    ins_md = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
+                else:
+                    ins_md = ins_raw
+            else:
+                ins_md = "_Not available_"
+            st.markdown("**🥗 Ingredients**")
+            st.markdown(ing_md)
             st.markdown("---")
-            st.markdown(f"**Instructions**\n\n{ins}")
+            st.markdown("**📋 Instructions**")
+            st.markdown(ins_md)
             if url:
                 st.markdown(f"[🔗 View full recipe →]({url})")
 
@@ -568,9 +602,24 @@ def page_recipes():
         tag    = " · ".join(filter(None,[diet,course]))
         label  = f"🍳  {name}" + (f"  ·  {tag}" if tag else "")
         with st.expander(label):
-            st.markdown(f"**Ingredients**\n\n{row.get('TranslatedIngredients','N/A')}")
+            import re
+            ing_raw = row.get("TranslatedIngredients", "")
+            ins_raw = row.get("TranslatedInstructions", "")
+            if ing_raw and ing_raw != "N/A":
+                items = [i.strip() for i in ing_raw.split(",") if i.strip()]
+                ing_md = "\n".join(f"- {i}" for i in items)
+            else:
+                ing_md = "_Not available_"
+            if ins_raw and ins_raw != "N/A":
+                sentences = [s.strip() for s in re.split("(?<=[.!?]) +(?=[A-Z])", ins_raw) if s.strip()]
+                ins_md = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences)) if len(sentences) > 1 else ins_raw
+            else:
+                ins_md = "_Not available_"
+            st.markdown("**🥗 Ingredients**")
+            st.markdown(ing_md)
             st.markdown("---")
-            st.markdown(f"**Instructions**\n\n{row.get('TranslatedInstructions','N/A')}")
+            st.markdown("**📋 Instructions**")
+            st.markdown(ins_md)
             if url:
                 st.markdown(f"[🔗 View full recipe →]({url})")
 
