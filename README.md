@@ -1,139 +1,115 @@
-# SmartKitchen 🍽️
+# 🍽️ SmartKitchen
 
-SmartKitchen is a machine learning–based application that focuses on **food recognition and classification**, with a primary emphasis on **fruit and vegetable identification** using deep learning. The project leverages a **MobileNet-based CNN model** to classify food items and can be extended for smart kitchen, nutrition, or food-management use cases.
+SmartKitchen is a machine-learning–powered web app that **identifies fruits and vegetables from photos** and instantly recommends **Indian recipes** based on what you have on hand.
 
----
-
-## 🚀 Project Overview
-
-The goal of SmartKitchen is to:
-
-* Automatically **classify fruits and vegetables from images**
-* Demonstrate the use of **transfer learning (MobileNet)** for image classification
-* Provide a foundation for smart kitchen applications such as food tracking, inventory management, or nutrition analysis
-
-The repository contains model training code, datasets, and an application script to run predictions using a trained model.
+Built with TensorFlow/Keras (MobileNet transfer learning) and deployed as a Streamlit application.
 
 ---
 
-## 🧠 Key Features
+## 🚀 Features
 
-* 📷 Image-based fruit & vegetable classification
-* 🧩 Transfer learning using **MobileNet**
-* 💾 Pre-trained model saved as `.h5`
-* 📊 Dataset support via CSV and image folders
-* 🐍 Python-based implementation
+- 📷 **Image classification** — upload a photo or use your webcam to identify a fruit or vegetable (36 classes)
+- 🧠 **MobileNet transfer learning** — fast, accurate CNN inference from a pre-trained `.h5` model
+- 🍛 **Recipe recommendations** — matched by ingredient name AND ingredient list from an Indian food dataset
+- 📊 **Recipe browser** — filter by diet type and course, or search by keyword
+- 🔢 **Calorie lookup** — live fetch with static fallback table so it never silently fails
+- 📱 **Responsive UI** — Streamlit layout with sidebar navigation
 
 ---
 
-## 📁 Repository Structure
+## 📁 Project Structure
 
-```text
+```
 SmartKitchen/
-│
-├── App.py                                # Main application script for inference
-├── FV.h5                                 # Trained MobileNet model
-├── Fruit_Veg_Classification_Mobilenet.ipynb  # Model training & experimentation notebook
-├── IndianFoodDatasetCSV.csv              # Food-related dataset (CSV format)
-├── dataset/                              # Image dataset directory
-├── requirements.txt                      # Project dependencies
-└── README.md                             # Project documentation
+├── App.py                                    # Main Streamlit application
+├── FV.h5                                     # Pre-trained MobileNet model
+├── Fruit_Veg_Classification_Mobilenet.ipynb  # Training notebook
+├── IndianFoodDatasetCSV.csv                  # Indian recipe dataset
+├── dataset/                                  # Training image data
+├── upload_images/                            # Temp folder for uploaded/captured images
+├── requirements.txt                          # Minimal dependencies
+└── README.md
 ```
 
 ---
 
-## 🛠️ Technologies Used
+## ⚙️ Setup
 
-* **Python**
-* **TensorFlow / Keras**
-* **MobileNet (Transfer Learning)**
-* **NumPy & Pandas**
-* **Jupyter Notebook**
-
----
-
-## ⚙️ Installation & Setup
-
-1. **Clone the repository**
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Dhwani-Chande/SmartKitchen.git
 cd SmartKitchen
 ```
 
-2. **Create and activate a virtual environment (optional but recommended)**
+### 2. Create a virtual environment (recommended)
 
 ```bash
 python -m venv venv
-source venv/bin/activate   # On Windows: venv\\Scripts\\activate
+source venv/bin/activate        # Windows: venv\Scripts\activate
 ```
 
-3. **Install dependencies**
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
+> **Apple Silicon users:** replace `tensorflow` with `tensorflow-macos` in requirements.txt
+
+### 4. Run the app
+
+```bash
+streamlit run App.py
+```
+
 ---
 
-## ▶️ How to Run
+## 🧠 Model Details
 
-### Option 1: Run the Application
+| Detail | Value |
+|---|---|
+| Architecture | MobileNet (transfer learning) |
+| Input size | 224 × 224 × 3 |
+| Output classes | 36 (fruits + vegetables) |
+| Framework | TensorFlow / Keras |
+| Saved format | `.h5` |
 
-```bash
-python App.py
-```
-
-This will load the trained model (`FV.h5`) and perform predictions based on the input logic defined in `App.py`.
-
-### Option 2: Explore / Train the Model
-
-Open the Jupyter Notebook:
-
-```bash
-jupyter notebook Fruit_Veg_Classification_Mobilenet.ipynb
-```
-
-Use this notebook to:
-
-* Understand data preprocessing
-* Train or fine-tune the MobileNet model
-* Evaluate performance
+Training code and data preprocessing are in `Fruit_Veg_Classification_Mobilenet.ipynb`.
 
 ---
 
 ## 📊 Dataset
 
-* The project uses image data stored in the `dataset/` directory
-* Additional structured food data is available in `IndianFoodDatasetCSV.csv`
-
-You can replace or expand the dataset to improve accuracy or support more food categories.
+- **Image data**: stored in `dataset/` directory, organised by class
+- **Recipe data**: `IndianFoodDatasetCSV.csv` — columns used:
+  - `TranslatedRecipeName`
+  - `TranslatedIngredients`
+  - `TranslatedInstructions`
+  - `Diet`
+  - `Course`
+  - `URL`
 
 ---
 
-## 🌱 Future Improvements
+## 🌱 Roadmap
 
-* Add real-time image capture (camera integration)
-* Expand classification beyond fruits & vegetables
-* Integrate nutritional information per item
-* Build a web or mobile interface
-* Improve model accuracy with more training data
+- [ ] Nutritional API integration (replace Google scraping)
+- [ ] Multi-ingredient detection (detect several items in one photo)
+- [ ] Expand to 100+ ingredient classes
+- [ ] User pantry tracker (remember what you have)
+- [ ] Mobile-optimised UI / PWA
 
 ---
 
 ## 👩‍💻 Author
 
-**Dhwani Chande**
-
-📌 GitHub: [https://github.com/Dhwani-Chande](https://github.com/Dhwani-Chande)
-📌 LinkedIn: [https://www.linkedin.com/in/dhwani-chande29/](https://www.linkedin.com/in/dhwani-chande29/)
+**Dhwani Chande**  
+GitHub: [Dhwani-Chande](https://github.com/Dhwani-Chande)  
+LinkedIn: [dhwani-chande29](https://www.linkedin.com/in/dhwani-chande29/)
 
 ---
 
 ## 📄 License
 
-This project is intended for **educational and research purposes**. You are free to use and modify it with proper attribution.
-
----
-
-⭐ If you found this project helpful, feel free to star the repository!
+Educational and research use. Free to use with attribution.

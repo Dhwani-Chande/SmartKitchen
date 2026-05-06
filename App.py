@@ -1,273 +1,331 @@
+import os
 import streamlit as st
 from PIL import Image
-import requests
-from bs4 import BeautifulSoup
 import numpy as np
-from keras.models import load_model
 import cv2
 import pandas as pd
-import os
+import requests
+from bs4 import BeautifulSoup
 
-large_font_style = "style='font-size:24px;'"
+# ──────────────────────────────────────────────
+# CONFIG & PATHS  (all relative — no hardcoded paths)
+# ──────────────────────────────────────────────
+BASE_DIR        = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_DIR      = os.path.join(BASE_DIR, "upload_images")
+DATASET_CSV     = os.path.join(BASE_DIR, "IndianFoodDatasetCSV.csv")
+MODEL_PATH      = os.path.join(BASE_DIR, "FV.h5")
 
-page_by_img = """
-<style>
-[data-testid="stAppViewContainer"]{
-    background-image: url("https://images.rawpixel.com/image_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA1L2lzOTc1Ny1pbWFnZS1rd3Z5ZHlvdy5qcGc.jpg");
-    background-size: cover;
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# ──────────────────────────────────────────────
+# LAZY-LOAD MODEL & DATASET  (cached so they load once)
+# ──────────────────────────────────────────────
+@st.cache_resource(show_spinner="Loading model…")
+def load_model():
+    from keras.models import load_model as keras_load
+    return keras_load(MODEL_PATH)
+
+@st.cache_data(show_spinner="Loading recipe dataset…")
+def load_recipes():
+    df = pd.read_csv(DATASET_CSV)
+    # Normalise column names (strip whitespace)
+    df.columns = df.columns.str.strip()
+    return df
+
+# ──────────────────────────────────────────────
+# LABELS
+# ──────────────────────────────────────────────
+LABELS = {
+    0: 'apple', 1: 'banana', 2: 'beetroot', 3: 'bell pepper',
+    4: 'cabbage', 5: 'capsicum', 6: 'carrot', 7: 'cauliflower',
+    8: 'chilli pepper', 9: 'corn', 10: 'cucumber', 11: 'eggplant',
+    12: 'garlic', 13: 'ginger', 14: 'grapes', 15: 'jalepeno',
+    16: 'kiwi', 17: 'lemon', 18: 'lettuce', 19: 'mango',
+    20: 'onion', 21: 'orange', 22: 'paprika', 23: 'pear',
+    24: 'peas', 25: 'pineapple', 26: 'pomegranate', 27: 'potato',
+    28: 'raddish', 29: 'soy beans', 30: 'spinach', 31: 'sweetcorn',
+    32: 'sweetpotato', 33: 'tomato', 34: 'turnip', 35: 'watermelon',
 }
 
-[data-testid="stHeader"]{
-    background-color: rgba(0,0,0,0);
+FRUITS = {
+    'apple', 'banana', 'bell pepper', 'chilli pepper', 'grapes',
+    'jalepeno', 'kiwi', 'lemon', 'mango', 'orange', 'paprika',
+    'pear', 'pineapple', 'pomegranate', 'watermelon',
 }
 
-[data-testid="stSidebar"] {
-    background-color: #001F3F; 
-    border-radius: 10px;
-    opacity: 0.9;
-
-[data-testid="stVerticalBlock"] {
-        font-size: 18px;
-        color: #001F3F;
-    }
+VEGETABLES = {
+    'beetroot', 'cabbage', 'capsicum', 'carrot', 'cauliflower',
+    'corn', 'cucumber', 'eggplant', 'garlic', 'ginger', 'lettuce',
+    'onion', 'peas', 'potato', 'raddish', 'soy beans', 'spinach',
+    'sweetcorn', 'sweetpotato', 'tomato', 'turnip',
 }
 
-</style>
-"""
-st.markdown(page_by_img, unsafe_allow_html=True)
-
-# Load dataset and model
-recipes_df = pd.read_csv('/Users/dhwanichande/Desktop/Project/Recipe Dataset/IndianFoodDatasetCSV.csv')
-model = load_model('FV.h5')
-
-# Define labels
-labels = {0: 'apple', 1: 'banana', 2: 'beetroot', 3: 'bell pepper', 4: 'cabbage', 5: 'capsicum', 6: 'carrot',
-          7: 'cauliflower', 8: 'chilli pepper', 9: 'corn', 10: 'cucumber', 11: 'eggplant', 12: 'garlic', 13: 'ginger',
-          14: 'grapes', 15: 'jalepeno', 16: 'kiwi', 17: 'lemon', 18: 'lettuce',
-          19: 'mango', 20: 'onion', 21: 'orange', 22: 'paprika', 23: 'pear', 24: 'peas', 25: 'pineapple',
-          26: 'pomegranate', 27: 'potato', 28: 'raddish', 29: 'soy beans', 30: 'spinach', 31: 'sweetcorn',
-          32: 'sweetpotato', 33: 'tomato', 34: 'turnip', 35: 'watermelon'}
-
-# Fruits and Vegetables
-fruits = ['Apple', 'Banana', 'Bell Pepper', 'Chilli Pepper', 'Grapes', 'Jalepeno', 'Kiwi', 'Lemon', 'Mango', 'Orange',
-          'Paprika', 'Pear', 'Pineapple', 'Pomegranate', 'Watermelon']
-vegetables = ['Beetroot', 'Cabbage', 'Capsicum', 'Carrot', 'Cauliflower', 'Corn', 'Cucumber', 'Eggplant', 'Ginger',
-              'Lettuce', 'Onion', 'Peas', 'Potato', 'Raddish', 'Soy Beans', 'Spinach', 'Sweetcorn', 'Sweetpotato',
-              'Tomato', 'Turnip']
-
-# Color ranges for masking
-red_lower = (17, 15, 100)
-red_upper = (180, 255, 255)
-
-def fetch_calories(prediction):
-    try:
-        url = 'https://www.google.com/search?&q=calories in ' + prediction
-        req = requests.get(url).text
-        scrap = BeautifulSoup(req, 'html.parser')
-        calories = scrap.find("div", class_="BNeawe iBp4i AP7Wnd").text
-        return calories
-    except Exception as e:
-        st.error("Can't fetch the Calories")
-        print(e)
-        return None
-
-def prepare_image(img_path):
-    img = Image.open(img_path)
-    img = img.resize((224, 224))  # Resize to match the input size of your model
-    img_array = np.array(img)
-    img_array = cv2.cvtColor(np.uint8(img_array), cv2.COLOR_RGB2BGR)  # Convert PIL image to BGR format
-    img_array = img_array / 255.0  # Normalize pixel values
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-
-    answer = model.predict(img_array)
-    y_class = answer.argmax(axis=-1)
-    prediction = labels[y_class[0]]
-    
-    # Convert image to HSV color space
-    hsv_image = cv2.cvtColor(np.uint8(img_array[0]), cv2.COLOR_BGR2HSV)
-
-    # Create a mask for the target color range
-    mask = cv2.inRange(hsv_image, red_lower, red_upper)
-
-    # Find contours in the mask
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Draw rectangles around detected fruits (optional)
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        cv2.rectangle(img_array[0], (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-    # Display the final image with detected fruits (optional)
-    #cv2.imwrite("detected_fruits.jpg", img_array[0])
-    #st.image(hsv_image, use_column_width=False)
-
-    return prediction.capitalize()
-
-def recommend_recipes(prediction):
-    predicted_recipes = recipes_df[recipes_df['TranslatedRecipeName'].str.contains(prediction, case=False)]
-    return predicted_recipes.head(5)  # Get top 5 recommended recipes
-
-def display_recommendations(recipes):
-    css1 = """
+# ──────────────────────────────────────────────
+# STYLING
+# ──────────────────────────────────────────────
+def apply_styles():
+    st.markdown("""
     <style>
-    [data-testid="stVerticalBlock"] {
-        font-size: 18px;
-        color: #001F3F;
+    [data-testid="stAppViewContainer"] {
+        background-image: url("https://images.rawpixel.com/image_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA1L2lzOTc1Ny1pbWFnZS1rd3Z5ZHlvdy5qcGc.jpg");
+        background-size: cover;
+        background-attachment: fixed;
     }
+    [data-testid="stHeader"] { background-color: rgba(0,0,0,0); }
+    [data-testid="stSidebar"] {
+        background-color: #001F3F;
+        border-radius: 10px;
+        opacity: 0.95;
+    }
+    [data-testid="stSidebar"] * { color: white !important; }
+    .block-container { padding-top: 2rem; }
     </style>
+    """, unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────
+# CALORIE FETCH  (with better CSS selector fallback + timeout)
+# ──────────────────────────────────────────────
+# Known approximate calories per 100g as a fallback if scraping fails
+CALORIE_FALLBACK = {
+    'apple': 52, 'banana': 89, 'beetroot': 43, 'bell pepper': 31,
+    'cabbage': 25, 'capsicum': 20, 'carrot': 41, 'cauliflower': 25,
+    'chilli pepper': 40, 'corn': 86, 'cucumber': 16, 'eggplant': 25,
+    'garlic': 149, 'ginger': 80, 'grapes': 67, 'jalepeno': 29,
+    'kiwi': 61, 'lemon': 29, 'lettuce': 15, 'mango': 60,
+    'onion': 40, 'orange': 47, 'paprika': 282, 'pear': 57,
+    'peas': 81, 'pineapple': 50, 'pomegranate': 83, 'potato': 77,
+    'raddish': 16, 'soy beans': 147, 'spinach': 23, 'sweetcorn': 86,
+    'sweetpotato': 86, 'tomato': 18, 'turnip': 28, 'watermelon': 30,
+}
+
+def fetch_calories(prediction: str) -> str:
+    """Try to scrape calories from Google; fall back to static table."""
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        url = f"https://www.google.com/search?q=calories+in+{prediction}+per+100g"
+        resp = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Try multiple known Google result div classes (they change over time)
+        for cls in ["BNeawe iBp4i AP7Wnd", "BNeawe", "IZ6rdc"]:
+            tag = soup.find("div", class_=cls)
+            if tag and "cal" in tag.text.lower():
+                return tag.text
+    except Exception:
+        pass
+
+    # Static fallback
+    kcal = CALORIE_FALLBACK.get(prediction.lower())
+    if kcal:
+        return f"~{kcal} kcal per 100g (estimated)"
+    return "Calorie data unavailable"
+
+# ──────────────────────────────────────────────
+# IMAGE CLASSIFICATION
+# ──────────────────────────────────────────────
+def classify_image(img_path: str) -> str:
+    """Load image, preprocess, run model, return predicted label."""
+    model = load_model()
+    img = Image.open(img_path).convert("RGB").resize((224, 224))
+    arr = np.array(img, dtype=np.float32) / 255.0          # normalize
+    arr = np.expand_dims(arr, axis=0)                       # add batch dim
+    preds = model.predict(arr, verbose=0)
+    label = LABELS[preds.argmax(axis=-1)[0]]
+    return label.capitalize()
+
+# ──────────────────────────────────────────────
+# RECIPE RECOMMENDATION  (improved: ingredient-level matching)
+# ──────────────────────────────────────────────
+def recommend_recipes(prediction: str, recipes_df: pd.DataFrame, n: int = 5) -> pd.DataFrame:
     """
-    st.markdown(css1, unsafe_allow_html=True)
-    st.markdown("<h1 style='color: #001F3F;'>Recommended Recipes</h1>", unsafe_allow_html=True)
-    #st.subheader("Recommended Recipes")
-    for index, recipe in recipes.iterrows():
-        st.write(f"**{recipe['TranslatedRecipeName']}**")
-        st.write(f"**Ingredients: {recipe['TranslatedIngredients']}**")
-        st.write(f"**Instructions: {recipe['TranslatedInstructions']}**")
-        st.write(f"**Link: {recipe['URL']}**")
-        st.markdown("<p style='font-size: 18px; color: #001F3F;'><b>______________________________________________________________________________</b></p>", unsafe_allow_html=True)
+    Match prediction against recipe names AND ingredients columns,
+    deduplicate, return top n.
+    """
+    pred_lower = prediction.lower()
+    mask_name  = recipes_df["TranslatedRecipeName"].str.lower().str.contains(
+                    pred_lower, na=False)
+    mask_ingr  = recipes_df["TranslatedIngredients"].str.lower().str.contains(
+                    pred_lower, na=False)
+    matched = recipes_df[mask_name | mask_ingr].drop_duplicates(
+                subset="TranslatedRecipeName")
+    return matched.head(n)
 
-def camera():
-    cam = cv2.VideoCapture(0)  # 0 is the default camera
+# ──────────────────────────────────────────────
+# DISPLAY HELPERS
+# ──────────────────────────────────────────────
+DIVIDER = "<hr style='border:1px solid #001F3F;'/>"
 
-    while True:
-        ret, frame = cam.read()
-        if not ret:
-            st.error("Failed to capture frame from the webcam.")
-            break
+def h(tag, text, color="#001F3F"):
+    return f"<{tag} style='color:{color};'>{text}</{tag}>"
 
-        img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        st.image(img, channels="RGB")
+def display_result(result: str):
+    category = "Fruit 🍎" if result.lower() in FRUITS else "Vegetable 🥦"
+    st.info(f"**Category:** {category}")
+    st.success(f"**Predicted:** {result}")
+    cal = fetch_calories(result)
+    st.warning(f"**Calories:** {cal}")
 
-        img_counter = 2
-        save_folder = '/Users/dhwanichande/Desktop/Project/upload_images'
+def display_recommendations(recipes: pd.DataFrame):
+    if recipes.empty:
+        st.info("No recipes found for this ingredient. Try browsing the Recipes page!")
+        return
+    st.markdown(h("h2", "Recommended Recipes 🍳"), unsafe_allow_html=True)
+    for _, row in recipes.iterrows():
+        st.markdown(f"#### {row.get('TranslatedRecipeName', 'Recipe')}")
+        with st.expander("View ingredients & instructions"):
+            st.markdown(f"**Ingredients:** {row.get('TranslatedIngredients', 'N/A')}")
+            st.markdown(f"**Instructions:** {row.get('TranslatedInstructions', 'N/A')}")
+            url = row.get("URL", "")
+            if url:
+                st.markdown(f"[🔗 Full Recipe]({url})")
+        st.markdown(DIVIDER, unsafe_allow_html=True)
 
-        try:
-            if st.button("Capture", key='webcam_capture_button'):            
-                save_image_path = os.path.join(save_folder, f"webcam_capture_{img_counter}.png")
-                cv2.imwrite(save_image_path, frame)
-                st.success(f"Image captured and saved as {save_image_path}")
-                img_counter += 1
+# ──────────────────────────────────────────────
+# PAGES
+# ──────────────────────────────────────────────
+def page_home():
+    st.markdown(h("h1", "🍽️ Smart Kitchen"), unsafe_allow_html=True)
+    st.markdown(h("h3", "About"), unsafe_allow_html=True)
+    st.markdown("""
+    <p style='font-size:18px; color:#001F3F;'>
+    Long work hours leave professionals exhausted, making healthy meals a daunting task.
+    SmartKitchen helps you identify the ingredients you have on hand and instantly suggests
+    nutritious Indian recipes — reducing food waste and decision fatigue.
+    </p>
+    """, unsafe_allow_html=True)
 
-                result = prepare_image(save_image_path)
-                prediction = result.lower().capitalize()
+    st.markdown(h("h3", "How It Works"), unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("### 📷\n**Upload or snap** a photo of your fruit or vegetable.")
+    with col2:
+        st.markdown("### 🧠\n**AI identifies** the ingredient using MobileNet.")
+    with col3:
+        st.markdown("### 🍛\n**Recipes & calories** are shown instantly.")
 
-                recommended_recipes = recommend_recipes(prediction)
-                display_recommendations(recommended_recipes)
-
-                if result:
-                    category = "Vegetable" if result in vegetables else "Fruit"
-                    st.info(f'**Category : {category}**')
-                    st.success(f"**Predicted : {result}**")
-                    cal = fetch_calories(result)
-                    if cal:
-                        st.warning(f'**{cal} (100 grams)**')
-
-            # Check if the "Stop" button is clicked
-            if st.button("Stop", key='webcam_stop_button'):           
-                break
-
-        except AttributeError as e:
-            if "DuplicateWidgetID" in str(e):
-                st.warning("A widget with the same ID already exists. Skipping...")
-            else:
-                st.error(f"An error occurred: {e}")
-
-    cam.release()
-    cv2.destroyAllWindows()
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(h("h3", "Contact"), unsafe_allow_html=True)
+    st.markdown("<p style='color:#001F3F;'>📧 smartref@gmail.com</p>",
+                unsafe_allow_html=True)
 
 
+def page_recipes():
+    recipes_df = load_recipes()
+    st.markdown(h("h1", "📖 Browse Recipes"), unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        diets = ["All"] + sorted(recipes_df["Diet"].dropna().unique().tolist())
+        diet_sel = st.selectbox("Diet Preference", diets, key="diet_sel")
+    with col2:
+        courses = ["All"] + sorted(recipes_df["Course"].dropna().unique().tolist())
+        course_sel = st.selectbox("Course", courses, key="course_sel")
+
+    search_q = st.text_input("🔍 Search by ingredient or recipe name", key="recipe_search")
+
+    filtered = recipes_df.copy()
+    if diet_sel != "All":
+        filtered = filtered[filtered["Diet"] == diet_sel]
+    if course_sel != "All":
+        filtered = filtered[filtered["Course"] == course_sel]
+    if search_q.strip():
+        q = search_q.strip().lower()
+        filtered = filtered[
+            filtered["TranslatedRecipeName"].str.lower().str.contains(q, na=False) |
+            filtered["TranslatedIngredients"].str.lower().str.contains(q, na=False)
+        ]
+
+    st.markdown(f"<p style='color:#001F3F;'><b>{len(filtered)} recipes found</b></p>",
+                unsafe_allow_html=True)
+
+    sample = filtered.sample(min(10, len(filtered)), random_state=42) if len(filtered) > 0 else filtered
+    for _, row in sample.iterrows():
+        st.markdown(f"#### {row.get('TranslatedRecipeName', '')}")
+        with st.expander("View Recipe"):
+            st.markdown(f"**Ingredients:** {row.get('TranslatedIngredients', 'N/A')}")
+            st.markdown(f"**Instructions:** {row.get('TranslatedInstructions', 'N/A')}")
+            url = row.get("URL", "")
+            if url:
+                st.markdown(f"[🔗 Full Recipe]({url})")
+        st.markdown(DIVIDER, unsafe_allow_html=True)
+
+
+def page_ingredients():
+    recipes_df = load_recipes()
+    st.markdown(h("h1", "🥦 Identify Ingredients"), unsafe_allow_html=True)
+    st.markdown(h("h3", "Fruit & Vegetable Classification"), unsafe_allow_html=True)
+
+    uploaded = st.file_uploader("Upload an image (JPG or PNG)", type=["jpg", "jpeg", "png"])
+
+    if uploaded is not None:
+        img = Image.open(uploaded).resize((300, 300))
+        st.image(img, caption="Uploaded Image", use_column_width=False)
+
+        save_path = os.path.join(UPLOAD_DIR, uploaded.name)
+        with open(save_path, "wb") as f:
+            f.write(uploaded.getbuffer())
+
+        with st.spinner("Classifying…"):
+            result = classify_image(save_path)
+
+        display_result(result)
+        recs = recommend_recipes(result, recipes_df)
+        display_recommendations(recs)
+
+
+def page_camera():
+    recipes_df = load_recipes()
+    st.markdown(h("h1", "📷 Live Camera"), unsafe_allow_html=True)
+    st.markdown(
+        "<p style='color:#001F3F;'>Use the camera input below to take a photo and identify your ingredient.</p>",
+        unsafe_allow_html=True,
+    )
+
+    # Use Streamlit's built-in camera_input (no OpenCV VideoCapture loop needed)
+    cam_image = st.camera_input("Take a photo")
+
+    if cam_image is not None:
+        save_path = os.path.join(UPLOAD_DIR, "camera_capture.jpg")
+        with open(save_path, "wb") as f:
+            f.write(cam_image.getbuffer())
+
+        with st.spinner("Classifying…"):
+            result = classify_image(save_path)
+
+        display_result(result)
+        recs = recommend_recipes(result, recipes_df)
+        display_recommendations(recs)
+
+
+# ──────────────────────────────────────────────
+# MAIN
+# ──────────────────────────────────────────────
 def main():
+    st.set_page_config(
+        page_title="SmartKitchen",
+        page_icon="🍽️",
+        layout="wide",
+    )
+    apply_styles()
+
     pages = {
-        "Home": home,
-        "Recipes": recipes,
-        "Ingredients": ingredients,
-        "Camera": camera
+        "🏠 Home":        page_home,
+        "📖 Recipes":     page_recipes,
+        "🥦 Ingredients": page_ingredients,
+        "📷 Camera":      page_camera,
     }
 
-    st.sidebar.title("Navigation")
-    selection = st.sidebar.radio("Go to", list(pages.keys()))
+    st.sidebar.title("🍽️ SmartKitchen")
+    st.sidebar.markdown("---")
+    selection = st.sidebar.radio("Navigate", list(pages.keys()))
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(
+        "<p style='font-size:12px;'>Built with TensorFlow · MobileNet · Streamlit</p>",
+        unsafe_allow_html=True,
+    )
 
     pages[selection]()
 
-
-def home():
-    st.markdown("<p style='font-size:80px; color: #001F3F;'><b>Smart Refrigerator</b></p>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size:24px; color: #001F3F;'><b>About Us</b></p>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size:18px; color: #001F3F;'><b>Long work hours leave professionals exhausted, making healthy meals a daunting task. They lack a clear picture of what ingredients they have on hand, leading to wasted food or unhealthy take-out choices due to indecisiveness about what to cook. This cycle of exhaustion and unhealthy eating creates a vicious loop, further draining their energy and motivation to cook nutritious meals. </b></p>", unsafe_allow_html=True)
-    st.write("\n\n")
-    st.image("Smart.png", use_column_width=False,width=300)  
-    st.write("\n\n")
-    st.write("\n\n")
-    st.markdown("<footer style='font-size:24px; color: #001F3F;'><b>Contact Us</b></footer>", unsafe_allow_html=True)
-    st.markdown("<footer style='font-size:15px; color: #001F3F;'><b>Mobile No : 7922918326</b></footer>", unsafe_allow_html=True)
-    st.markdown("<footer style='font-size:15px; color: #001F3F;'><b>Mail ID : smartref@gmail.com</b></footer>", unsafe_allow_html=True)
-
-
-def recipes():
-    css = """
-    <style>
-    [data-testid="stVerticalBlock"] {
-        font-size: 18px;
-        color: #001F3F;
-    }
-    </style>
-    """
-    st.markdown(css, unsafe_allow_html=True)
-
-    st.markdown("<h1 style='color: #001F3F;'>Recipes</h1>", unsafe_allow_html=True)
-    # Extract unique values from the "Diet" column
-    all_diet_preferences = recipes_df['Diet'].unique()
-    all_courses = recipes_df['Course'].unique()
-
-    # Add widget for user preferences
-    st.markdown("<p style='font-size: 18px; color: #001F3F;'><b>Select Your Diet Preferences:</b></p>", unsafe_allow_html=True)
-    preferences = st.selectbox('', [''] + list(all_diet_preferences), key="diet_selectbox")
-    st.markdown("<p style='font-size: 18px; color: #001F3F;'><b>Select Your Course Preferences:</b></p>", unsafe_allow_html=True)
-    courses = st.selectbox("", [''] + list(all_courses), key="course_selectbox")
-
-    # Display TranslatedRecipeName, TranslatedIngredients, and TranslatedInstructions
-    filtered_recipes = recipes_df.copy()
-    if preferences:
-        filtered_recipes = filtered_recipes[filtered_recipes['Diet'] == preferences]
-    
-    # Apply filters based on user course preference
-    if courses:
-        filtered_recipes = filtered_recipes[filtered_recipes['Course'] == courses]
-
-    # Randomly select 10 rows from the filtered DataFrame
-    random_recipes = filtered_recipes.sample(n=10, random_state=1)
-    for index, row in random_recipes.iterrows():
-        st.write(f"**{row['TranslatedRecipeName']}**")
-        st.write(f"**Ingredients: {row['TranslatedIngredients']}**")
-        st.write(f"**Instructions: {row['TranslatedInstructions']}**")
-        st.write(f"**Link: {row['URL']}**")
-        st.markdown("<p style='font-size: 18px; color: #001F3F;'><b>______________________________________________________________________________</b></p>", unsafe_allow_html=True)
-
-def ingredients():
-
-    st.markdown("<h1 style='color: #001F3F;'>Ingredients</h1>", unsafe_allow_html=True)
-    st.markdown("<h2 style='color: #001F3F;'>Fruits🍍-Vegetable🍅 Classification</h2>", unsafe_allow_html=True)
-
-    img_file = st.file_uploader("Choose an Image", type=["jpg", "png"])
-    if img_file is not None:
-        img = Image.open(img_file).resize((250, 250))
-        st.image(img, use_column_width=False)
-        save_image_path = './upload_images/' + img_file.name
-        with open(save_image_path, "wb") as f:
-            f.write(img_file.getbuffer())
-
-        result = prepare_image(save_image_path)
-        prediction = result.lower().capitalize()
-
-        if result:
-            category = "Vegetable" if result in vegetables else "Fruit"
-            st.info(f'**Category : {category}**')
-            st.success(f"**Predicted : {result}**")
-            cal = fetch_calories(result)
-            if cal:
-                st.warning(f'**{cal} (100 grams)**')
-            recommended_recipes = recommend_recipes(prediction)
-            display_recommendations(recommended_recipes)
 
 if __name__ == "__main__":
     main()
