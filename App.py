@@ -360,9 +360,6 @@ def page_home():
 
 
 def page_identify():
-    if not require_auth():
-        return
-
     user = get_user()
     recipes_df = load_recipes()
 
@@ -492,9 +489,6 @@ def page_identify():
 
 
 def page_recipes():
-    if not require_auth():
-        return
-
     user = get_user()
     recipes_df = load_recipes()
 
@@ -541,9 +535,6 @@ def page_recipes():
 
 
 def page_profile():
-    if not require_auth():
-        return
-
     user = get_user()
     st.title(f"👤 {user['name']}'s Profile")
     st.divider()
@@ -603,9 +594,22 @@ def main():
         page_title="SmartKitchen",
         page_icon="🍽️",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="collapsed",
     )
 
+    # ── Gate: show auth page if not logged in ──
+    if not get_user():
+        # Hide sidebar entirely on auth page
+        st.markdown("""
+        <style>
+        [data-testid="stSidebar"] { display: none; }
+        [data-testid="collapsedControl"] { display: none; }
+        </style>
+        """, unsafe_allow_html=True)
+        auth_page()
+        return
+
+    # ── Logged in: show full app ───────────────
     PAGES = {
         "🏠 Home":       page_home,
         "🥦 Identify":   page_identify,
@@ -613,18 +617,18 @@ def main():
         "👤 My Profile": page_profile,
     }
 
+    user = get_user()
     with st.sidebar:
         st.title("🍽️ SmartKitchen")
         st.caption("AI Recipe Assistant")
-        user = get_user()
-        if user:
-            st.caption(f"👤 {user['name']}")
-            auth_user = st.session_state.get("auth_user")
-            if auth_user:
-                st.caption(f"✉️ {auth_user.email}")
-            diet = user.get("diet_preference","All")
-            if diet != "All":
-                st.caption(f"🥗 {diet}")
+        st.divider()
+        st.write(f"👤 **{user['name']}**")
+        auth_user = st.session_state.get("auth_user")
+        if auth_user:
+            st.caption(f"✉️ {auth_user.email}")
+        diet = user.get("diet_preference","All")
+        if diet != "All":
+            st.caption(f"🥗 {diet}")
         st.divider()
         sel = st.radio("", list(PAGES.keys()), label_visibility="collapsed")
         st.divider()
