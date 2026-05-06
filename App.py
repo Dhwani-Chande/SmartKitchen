@@ -66,19 +66,58 @@ VEGETABLES = {
 def apply_styles():
     st.markdown("""
     <style>
+    /* Background */
     [data-testid="stAppViewContainer"] {
         background-image: url("https://images.rawpixel.com/image_800/cHJpdmF0ZS9sci9pbWFnZXMvd2Vic2l0ZS8yMDIyLTA1L2lzOTc1Ny1pbWFnZS1rd3Z5ZHlvdy5qcGc.jpg");
         background-size: cover;
         background-attachment: fixed;
     }
     [data-testid="stHeader"] { background-color: rgba(0,0,0,0); }
+
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background-color: #001F3F;
         border-radius: 10px;
         opacity: 0.95;
     }
     [data-testid="stSidebar"] * { color: white !important; }
-    .block-container { padding-top: 2rem; }
+
+    /* Main content area — white semi-transparent card */
+    .block-container {
+        padding-top: 2rem;
+        background-color: rgba(255, 255, 255, 0.88);
+        border-radius: 16px;
+        padding: 2rem 2.5rem;
+    }
+
+    /* All main text dark */
+    .block-container p,
+    .block-container li,
+    .block-container label,
+    .block-container span,
+    .block-container div {
+        color: #1a1a1a !important;
+    }
+
+    /* Expander content — white background, dark text */
+    [data-testid="stExpander"] {
+        background-color: rgba(255,255,255,0.95) !important;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+    [data-testid="stExpander"] * {
+        color: #1a1a1a !important;
+    }
+
+    /* Selectbox and text input readable */
+    [data-testid="stSelectbox"] label,
+    [data-testid="stTextInput"] label {
+        color: #001F3F !important;
+        font-weight: 600;
+    }
+
+    /* Recipe title headers */
+    h4 { color: #001F3F !important; }
     </style>
     """, unsafe_allow_html=True)
 
