@@ -224,56 +224,12 @@ def show_recipe_expander(row: dict, user_id: str = None, key_prefix: str = "r"):
 def get_user():
     return st.session_state.get("user")
 
-def handle_google_callback():
-    """Check URL params for Google OAuth callback and complete sign-in."""
-    params = st.query_params
-    # Supabase puts access_token in the URL fragment — streamlit can't read fragments
-    # So we use a workaround: redirect through a small JS snippet
-    code = params.get("code")
-    if code:
-        try:
-            sb = get_supabase()
-            res = sb.auth.exchange_code_for_session({"auth_code": code})
-            if res.user:
-                profile = db_get_or_create_profile(res.user)
-                st.session_state["user"] = profile
-                st.session_state["auth_user"] = res.user
-                st.query_params.clear()
-                st.rerun()
-        except Exception as e:
-            st.error(f"Google sign-in failed: {e}")
-
-
 def auth_page():
     """Full login / signup page using Supabase Auth."""
     sb = get_supabase()
 
-    # Handle Google OAuth callback first
-    handle_google_callback()
-    if get_user():
-        return
-
     st.title("🍽️ SmartKitchen")
     st.write("Create an account or sign in to save favourites and track your searches.")
-    st.divider()
-
-    # Google Sign In button
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🔵  Continue with Google", use_container_width=True, key="google_btn"):
-            try:
-                res = sb.auth.sign_in_with_oauth({
-                    "provider": "google",
-                    "options": {
-                        "redirect_to": "https://smartkitchen.streamlit.app"
-                    }
-                })
-                # Redirect user to Google
-                st.markdown(f'<meta http-equiv="refresh" content="0; url={res.url}">', unsafe_allow_html=True)
-                st.link_button("Click here if not redirected →", res.url, use_container_width=True)
-            except Exception as e:
-                st.error(f"Google sign-in error: {e}")
-
     st.divider()
 
     tab_login, tab_signup = st.tabs(["Sign In", "Create Account"])
