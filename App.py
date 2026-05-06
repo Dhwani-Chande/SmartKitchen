@@ -352,6 +352,17 @@ def apply_styles():
     }
     [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
 
+    /* Nuke ALL Material Icons font text across entire app */
+    span.material-symbols-rounded,
+    span[class*="material-symbols"],
+    span[class*="material-icons"] {
+        font-size: 0 !important;
+        width: 16px !important;
+        height: 16px !important;
+        overflow: hidden !important;
+        display: inline-block !important;
+    }
+
     /* Spinner */
     .stSpinner { color: #58a6ff !important; }
 
