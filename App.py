@@ -261,11 +261,17 @@ def auth_page():
     """Full login / signup page using Supabase Auth."""
     sb = get_supabase()
 
-    st.title("🍽️ SmartKitchen")
-    st.write("Create an account or sign in to save favourites and track your searches.")
-    st.divider()
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div style="text-align:center;padding:2rem 0 1rem;">
+            <div style="font-size:3.5rem;">🍽️</div>
+            <div style="font-size:2rem;font-weight:800;color:#ffffff;margin-bottom:0.3rem;">SmartKitchen</div>
+            <div style="color:#78909c;font-size:0.95rem;">AI-powered ingredient identification & Indian recipes</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    tab_login, tab_signup = st.tabs(["Sign In", "Create Account"])
+        tab_login, tab_signup = st.tabs(["Sign In", "Create Account"])
 
     with tab_login:
         st.subheader("Welcome back!")
@@ -291,26 +297,26 @@ def auth_page():
         password = st.text_input("Password (min 6 chars)", type="password", key="signup_pass")
         password2 = st.text_input("Confirm password", type="password", key="signup_pass2")
         if st.button("Create Account", type="primary", use_container_width=True, key="signup_btn"):
-            if not name or not email or not password:
-                st.warning("Please fill in all fields.")
-            elif password != password2:
-                st.error("Passwords don't match.")
-            elif len(password) < 6:
-                st.error("Password must be at least 6 characters.")
-            else:
-                try:
-                    res = sb.auth.sign_up({
-                        "email": email,
-                        "password": password,
-                        "options": {"data": {"full_name": name}}
-                    })
-                    profile = db_get_or_create_profile(res.user)
-                    st.session_state["user"] = profile
-                    st.session_state["auth_user"] = res.user
-                    st.success(f"Welcome, {name}! 🎉")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Signup failed: {e}")
+                if not name or not email or not password:
+                    st.warning("Please fill in all fields.")
+                elif password != password2:
+                    st.error("Passwords don't match.")
+                elif len(password) < 6:
+                    st.error("Password must be at least 6 characters.")
+                else:
+                    try:
+                        res = sb.auth.sign_up({
+                            "email": email,
+                            "password": password,
+                            "options": {"data": {"full_name": name}}
+                        })
+                        profile = db_get_or_create_profile(res.user)
+                        st.session_state["user"] = profile
+                        st.session_state["auth_user"] = res.user
+                        st.success(f"Welcome, {name}! 🎉")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Signup failed: {e}")
 
 def require_auth() -> bool:
     """Returns True if user is logged in, otherwise shows auth page."""
@@ -596,6 +602,158 @@ def main():
         layout="wide",
         initial_sidebar_state="collapsed",
     )
+
+    # ── Global styles ─────────────────────────
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
+
+    /* Warm gradient background */
+    .stApp {
+        background: linear-gradient(160deg, #0f1923 0%, #1a2a1a 50%, #1a1a2e 100%);
+    }
+
+    /* Main content area */
+    .block-container {
+        padding-top: 2rem !important;
+        max-width: 1050px !important;
+    }
+
+    /* Sidebar — deep forest green */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d1f0d 0%, #0f1923 100%) !important;
+        border-right: 1px solid #2d4a2d !important;
+    }
+    [data-testid="stSidebar"] * { color: #c8e6c9 !important; }
+    [data-testid="stSidebar"] h1 { color: #81c784 !important; font-size: 1.3rem !important; }
+
+    /* Metric cards */
+    [data-testid="stMetric"] {
+        background: rgba(255,255,255,0.04) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 12px !important;
+        padding: 1rem !important;
+    }
+    [data-testid="stMetricLabel"] { color: #90a4ae !important; font-size: 0.78rem !important; }
+    [data-testid="stMetricValue"] { color: #ffffff !important; font-weight: 700 !important; }
+
+    /* Page titles */
+    h1 { color: #ffffff !important; font-weight: 700 !important; }
+    h2 { color: #e8f5e9 !important; font-weight: 600 !important; }
+    h3 { color: #c8e6c9 !important; }
+
+    /* Body text */
+    p, .stMarkdown p { color: #b0bec5 !important; }
+
+    /* Expanders */
+    [data-testid="stExpander"] {
+        background: rgba(255,255,255,0.03) !important;
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 10px !important;
+        margin-bottom: 0.4rem !important;
+    }
+    [data-testid="stExpander"]:hover {
+        border-color: #4caf50 !important;
+        background: rgba(76,175,80,0.05) !important;
+    }
+    [data-testid="stExpander"] summary { color: #e0e0e0 !important; font-weight: 500 !important; }
+    [data-testid="stExpander"] p { color: #90a4ae !important; font-size: 0.88rem !important; }
+    [data-testid="stExpander"] strong { color: #a5d6a7 !important; }
+
+    /* Buttons */
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #2e7d32, #43a047) !important;
+        border: none !important;
+        border-radius: 8px !important;
+        color: white !important;
+        font-weight: 600 !important;
+        transition: transform 0.15s, box-shadow 0.15s !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 15px rgba(76,175,80,0.4) !important;
+    }
+    .stButton > button[kind="secondary"] {
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.15) !important;
+        border-radius: 8px !important;
+        color: #e0e0e0 !important;
+    }
+
+    /* Text inputs */
+    .stTextInput input {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 8px !important;
+        color: #ffffff !important;
+    }
+    .stTextInput input:focus {
+        border-color: #4caf50 !important;
+        box-shadow: 0 0 0 2px rgba(76,175,80,0.2) !important;
+    }
+    .stTextInput label { color: #90a4ae !important; font-size: 0.85rem !important; }
+
+    /* Selectbox */
+    [data-testid="stSelectbox"] > div > div {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 8px !important;
+        color: #ffffff !important;
+    }
+    .stSelectbox label { color: #90a4ae !important; font-size: 0.85rem !important; }
+
+    /* File uploader */
+    [data-testid="stFileUploaderDropzone"] {
+        background: rgba(76,175,80,0.04) !important;
+        border: 2px dashed rgba(76,175,80,0.3) !important;
+        border-radius: 12px !important;
+    }
+    [data-testid="stFileUploaderDropzone"]:hover {
+        border-color: #4caf50 !important;
+        background: rgba(76,175,80,0.08) !important;
+    }
+
+    /* Info/success/warning boxes */
+    .stAlert {
+        border-radius: 10px !important;
+        border: none !important;
+    }
+
+    /* Divider */
+    hr { border-color: rgba(255,255,255,0.08) !important; }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background: rgba(255,255,255,0.03) !important;
+        border-radius: 10px !important;
+        padding: 4px !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px !important;
+        color: #90a4ae !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(76,175,80,0.2) !important;
+        color: #a5d6a7 !important;
+    }
+
+    /* Caption text */
+    .stCaptionContainer p { color: #546e7a !important; }
+
+    /* Checkbox */
+    .stCheckbox label { color: #b0bec5 !important; }
+
+    /* Camera input */
+    [data-testid="stCameraInput"] { border-radius: 12px !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2d4a2d; border-radius: 3px; }
+    </style>
+    """, unsafe_allow_html=True)
 
     # ── Gate: show auth page if not logged in ──
     if not get_user():
