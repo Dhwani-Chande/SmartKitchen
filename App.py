@@ -266,8 +266,8 @@ def auth_page():
         st.markdown("""
         <div style="text-align:center;padding:2rem 0 1rem;">
             <div style="font-size:3.5rem;">🍽️</div>
-            <div style="font-size:2rem;font-weight:800;color:#ffffff;margin-bottom:0.3rem;">SmartKitchen</div>
-            <div style="color:#78909c;font-size:0.95rem;">AI-powered ingredient identification & Indian recipes</div>
+            <div style="font-size:2rem;font-weight:800;color:#2C1A0E;margin-bottom:0.3rem;font-family:Georgia,serif;">SmartKitchen</div>
+            <div style="color:#8D6E63;font-size:0.95rem;">AI-powered ingredient identification & Indian recipes</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -624,7 +624,15 @@ def main():
     }
     [data-testid="stSidebar"] * { color: #F5DEB3 !important; }
     [data-testid="stSidebar"] h1 { color: #FFDAA0 !important; font-family: 'Playfair Display', serif !important; }
-    [data-testid="stSidebar"] .stCaption p { color: #A0856A !important; }
+    [data-testid="stSidebar"] p { color: #F5DEB3 !important; }
+    [data-testid="stSidebar"] span { color: #F5DEB3 !important; }
+    [data-testid="stSidebar"] label { color: #F5DEB3 !important; }
+    [data-testid="stSidebar"] .stCaption p { color: #C8A882 !important; }
+    [data-testid="stSidebar"] small { color: #C8A882 !important; }
+    [data-testid="stSidebar"] a { color: #FFDAA0 !important; }
+    /* Radio options */
+    [data-testid="stSidebar"] .stRadio label p { color: #F5DEB3 !important; font-size: 0.95rem !important; }
+    [data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] p { color: #F5DEB3 !important; }
 
     /* Headings */
     h1 { color: #2C1A0E !important; font-weight: 700 !important; }
@@ -680,12 +688,13 @@ def main():
         box-shadow: 0 4px 12px rgba(160,82,45,0.35) !important;
     }
     .stButton > button[kind="secondary"] {
-        background: #FFFAF3 !important;
-        border: 1px solid #E8D5B7 !important;
+        background: #FFF5E6 !important;
+        border: 1px solid #D7B896 !important;
         border-radius: 8px !important;
-        color: #5D4037 !important;
+        color: #8D6E63 !important;
     }
     .stButton > button[kind="secondary"]:hover {
+        background: #FFEEDD !important;
         border-color: #A0522D !important;
         color: #A0522D !important;
     }
@@ -796,7 +805,7 @@ def main():
         if diet != "All":
             st.caption(f"🥗 {diet}")
         st.divider()
-        sel = st.radio("", list(PAGES.keys()), label_visibility="collapsed")
+        sel = st.radio("Navigation", list(PAGES.keys()), label_visibility="collapsed")
         st.divider()
         st.caption("TensorFlow · MobileNet · Streamlit · Supabase")
 
