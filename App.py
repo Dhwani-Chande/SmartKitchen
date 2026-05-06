@@ -267,7 +267,7 @@ def show_recipes(result, recipes_df):
     recs = recommend_recipes(result, recipes_df)
     st.markdown(f'<span class="sk-section-title">Recipes using {result} &nbsp;<span class="sk-badge">{len(recs)} found</span></span>', unsafe_allow_html=True)
     if recs.empty:
-        st.markdown('<div class="sk-card"><p style="color:#78909c;">No recipes found. Try the Browse Recipes page.</p></div>', unsafe_allow_html=True)
+        st.info("No recipes found for this ingredient. Try the Browse Recipes page.")
         return
     for _, row in recs.iterrows():
         name   = row.get("TranslatedRecipeName", "Recipe")
@@ -275,10 +275,9 @@ def show_recipes(result, recipes_df):
         course = row.get("Course", "")
         url    = row.get("URL", "")
         meta   = " · ".join(filter(None, [diet, course]))
-        st.markdown(f'<div class="sk-card"><div class="sk-recipe-title">🍳 {name}</div><div class="sk-recipe-meta">{meta}</div></div>', unsafe_allow_html=True)
-        with st.expander("View recipe"):
-            st.markdown(f"**Ingredients:** {row.get('TranslatedIngredients','N/A')}")
-            st.markdown(f"**Instructions:** {row.get('TranslatedInstructions','N/A')}")
+        with st.expander(f"🍳 {name}  —  {meta}"):
+            st.markdown(f"**🥗 Ingredients:**\n\n{row.get('TranslatedIngredients','N/A')}")
+            st.markdown(f"**📋 Instructions:**\n\n{row.get('TranslatedInstructions','N/A')}")
             if url:
                 st.markdown(f"[🔗 Full Recipe →]({url})")
 
@@ -391,10 +390,9 @@ def page_recipes():
         course = row.get("Course","")
         url    = row.get("URL","")
         meta   = " · ".join(filter(None,[diet,course]))
-        st.markdown(f'<div class="sk-card"><div class="sk-recipe-title">🍳 {name}</div><div class="sk-recipe-meta">{meta}</div></div>', unsafe_allow_html=True)
-        with st.expander("View recipe"):
-            st.markdown(f"**Ingredients:** {row.get('TranslatedIngredients','N/A')}")
-            st.markdown(f"**Instructions:** {row.get('TranslatedInstructions','N/A')}")
+        with st.expander(f"🍳 {name}  —  {meta}"):
+            st.markdown(f"**🥗 Ingredients:** {row.get('TranslatedIngredients','N/A')}")
+            st.markdown(f"**📋 Instructions:** {row.get('TranslatedInstructions','N/A')}")
             if url:
                 st.markdown(f"[🔗 Full Recipe →]({url})")
 
